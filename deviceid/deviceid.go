@@ -7,7 +7,8 @@ import (
 	"runtime"
 )
 
-const fingerprintVersion = 1
+// fingerprintVersion 2: hash covers only v, source, id (not OS/arch) and prefers SMBIOS UUID on bare metal.
+const fingerprintVersion = 2
 
 type Source string
 
@@ -15,6 +16,7 @@ const (
 	SourceAWS           Source = "aws_ec2"
 	SourceAzure         Source = "azure_vm"
 	SourceGCP           Source = "gcp_gce"
+	SourceSMBIOS        Source = "smbios_system_uuid"
 	SourceLinux         Source = "linux_machine_id"
 	SourceWindows       Source = "windows_machine_guid"
 	SourceDarwin        Source = "darwin_platform_uuid"
@@ -67,8 +69,20 @@ func resolveIdentity() (Identity, error) {
 	return physicalIdentity()
 }
 
+// stableHashPayload is what gets hashed so dual-boot OS (or arch) changes do not change the digest.
+type stableHashPayload struct {
+	Version int    `json:"v"`
+	Source  Source `json:"source"`
+	ID      string `json:"id"`
+}
+
 func hashFingerprint(fp Fingerprint) (string, error) {
-	b, err := json.Marshal(fp)
+	payload := stableHashPayload{
+		Version: fp.Version,
+		Source:  fp.Source,
+		ID:      fp.ID,
+	}
+	b, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
 	}
