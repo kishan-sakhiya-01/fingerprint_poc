@@ -9,6 +9,12 @@ import (
 )
 
 func physicalIdentity() (Identity, error) {
+	// WSL: use the Windows host SMBIOS UUID (same path as native Windows) so hash matches host + dual-boot Linux when firmware UUID matches.
+	if isWSL() {
+		if id, ok := identityFromCIMProductUUID(); ok {
+			return id, nil
+		}
+	}
 	if id, ok := linuxSMBIOSUUID(); ok {
 		return id, nil
 	}
