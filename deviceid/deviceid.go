@@ -7,8 +7,8 @@ import (
 	"runtime"
 )
 
-// fingerprintVersion 3: v2 + SMBIOS UUID endianness canonicalized so Windows WMI and Linux sysfs match the same machine.
-const fingerprintVersion = 3
+// fingerprintVersion 4: v3 + Linux reads SMBIOS Type-1 from firmware DMI entries (and dmidecode fallback) when product_uuid sysfs is missing.
+const fingerprintVersion = 4
 
 type Source string
 

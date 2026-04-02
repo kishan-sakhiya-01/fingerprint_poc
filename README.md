@@ -31,7 +31,7 @@ fp, hash, err := deviceid.Compute()
 ## Fingerprint and hash
 
 - **`Fingerprint`**: `v` (schema/version), `source` (how `id` was obtained), `id` (normalized identifier string), plus `os` and `arch` from the Go runtime.
-- **`hash`**: `SHA256( JSON({ "v", "source", "id" }) )` as lowercase hex. Field order follows JSON marshaling of that struct. Schema `v` is currently **3** (includes SMBIOS endian canonicalization).
+- **`hash`**: `SHA256( JSON({ "v", "source", "id" }) )` as lowercase hex. Field order follows JSON marshaling of that struct. Schema `v` is currently **4** (includes SMBIOS endian canonicalization and extra Linux DMI sources when `product_uuid` sysfs is missing).
 
 Hardware UUIDs are normalized: trimmed, braces removed, lowercased, and the all-zero UUID is rejected. For SMBIOS product/system UUIDs, the first three fields are also **endianness-canonicalized** (the same firmware UUID is often shown differently by Windows WMI vs Linux `/sys/class/dmi/id/product_uuid`); the code picks a single deterministic string so dual-boot pairs match.
 
@@ -53,7 +53,7 @@ Cloud checks use short HTTP timeouts; if no cloud metadata responds, the physica
 | **Windows** | `Win32_ComputerSystemProduct.UUID` (SMBIOS) via PowerShell | `smbios_system_uuid` |
 | Windows (fallback) | Registry `HKLM\SOFTWARE\Microsoft\Cryptography` `MachineGuid` | `windows_machine_guid` |
 | **Linux** | Same SMBIOS as Windows when running under **WSL**: host query via `powershell.exe` | `smbios_system_uuid` |
-| Linux | `/sys/class/dmi/id/product_uuid` | `smbios_system_uuid` |
+| Linux | `/sys/class/dmi/id/product_uuid` (and `/sys/devices/virtual/dmi/id/product_uuid`), else SMBIOS **Type 1** raw under `/sys/firmware/dmi/entries/*/raw`, else `dmidecode -s system-uuid` | `smbios_system_uuid` |
 | Linux (fallback) | `/etc/machine-id` or `/var/lib/dbus/machine-id` | `linux_machine_id` |
 | **macOS** | `ioreg` `IOPlatformUUID` | `darwin_platform_uuid` |
 | Other | — | `unsupported_os` (error) |

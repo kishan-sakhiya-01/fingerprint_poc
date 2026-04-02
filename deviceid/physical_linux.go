@@ -15,7 +15,7 @@ func physicalIdentity() (Identity, error) {
 			return id, nil
 		}
 	}
-	if id, ok := linuxSMBIOSUUID(); ok {
+	if id, ok := linuxSMBIOSIdentity(); ok {
 		return id, nil
 	}
 	for _, p := range []string{"/etc/machine-id", "/var/lib/dbus/machine-id"} {
@@ -29,16 +29,4 @@ func physicalIdentity() (Identity, error) {
 		}
 	}
 	return Identity{}, fmt.Errorf("linux: no machine-id found")
-}
-
-func linuxSMBIOSUUID() (Identity, bool) {
-	b, err := os.ReadFile("/sys/class/dmi/id/product_uuid")
-	if err != nil {
-		return Identity{}, false
-	}
-	u, ok := stabilizeSMBIOSUUID(string(b))
-	if !ok {
-		return Identity{}, false
-	}
-	return Identity{Source: SourceSMBIOS, RawID: u}, true
 }
