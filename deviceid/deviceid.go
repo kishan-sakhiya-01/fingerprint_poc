@@ -7,8 +7,8 @@ import (
 	"runtime"
 )
 
-// fingerprintVersion 4: v3 + Linux reads SMBIOS Type-1 from firmware DMI entries (and dmidecode fallback) when product_uuid sysfs is missing.
-const fingerprintVersion = 4
+// fingerprintVersion 5: physical id prefers boot-disk serial (no sudo on Linux sysfs; Windows/WSL via PowerShell) before SMBIOS so dual-boot matches when DMI is root-only.
+const fingerprintVersion = 5
 
 type Source string
 
@@ -17,6 +17,7 @@ const (
 	SourceAzure         Source = "azure_vm"
 	SourceGCP           Source = "gcp_gce"
 	SourceSMBIOS        Source = "smbios_system_uuid"
+	SourceBootDisk      Source = "boot_disk_serial"
 	SourceLinux         Source = "linux_machine_id"
 	SourceWindows       Source = "windows_machine_guid"
 	SourceDarwin        Source = "darwin_platform_uuid"

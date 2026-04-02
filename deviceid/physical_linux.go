@@ -9,14 +9,24 @@ import (
 )
 
 func physicalIdentity() (Identity, error) {
-	// WSL: use the Windows host SMBIOS UUID (same path as native Windows) so hash matches host + dual-boot Linux when firmware UUID matches.
+	// WSL: host boot disk via PowerShell first (matches Windows); do not use Linux guest block serial.
 	if isWSL() {
+		if id, ok := identityBootDiskFromPS(); ok {
+			return id, nil
+		}
 		if id, ok := identityFromCIMProductUUID(); ok {
 			return id, nil
 		}
-	}
-	if id, ok := linuxSMBIOSIdentity(); ok {
-		return id, nil
+		if id, ok := linuxSMBIOSIdentity(); ok {
+			return id, nil
+		}
+	} else {
+		if id, ok := tryLinuxBootDiskSerialSysfs(); ok {
+			return id, nil
+		}
+		if id, ok := linuxSMBIOSIdentity(); ok {
+			return id, nil
+		}
 	}
 	for _, p := range []string{"/etc/machine-id", "/var/lib/dbus/machine-id"} {
 		b, err := os.ReadFile(p)

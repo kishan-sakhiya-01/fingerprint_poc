@@ -10,6 +10,9 @@ import (
 )
 
 func physicalIdentity() (Identity, error) {
+	if id, ok := identityBootDiskFromPS(); ok {
+		return id, nil
+	}
 	if id, ok := identityFromCIMProductUUID(); ok {
 		return id, nil
 	}
