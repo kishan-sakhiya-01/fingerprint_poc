@@ -36,7 +36,7 @@ func linuxSMBIOSUUID() (Identity, bool) {
 	if err != nil {
 		return Identity{}, false
 	}
-	u, ok := normalizeHardwareUUID(string(b))
+	u, ok := stabilizeSMBIOSUUID(string(b))
 	if !ok {
 		return Identity{}, false
 	}

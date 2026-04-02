@@ -7,8 +7,8 @@ import (
 	"runtime"
 )
 
-// fingerprintVersion 2: hash covers only v, source, id (not OS/arch) and prefers SMBIOS UUID on bare metal.
-const fingerprintVersion = 2
+// fingerprintVersion 3: v2 + SMBIOS UUID endianness canonicalized so Windows WMI and Linux sysfs match the same machine.
+const fingerprintVersion = 3
 
 type Source string
 

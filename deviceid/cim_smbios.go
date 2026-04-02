@@ -20,7 +20,7 @@ func identityFromCIMProductUUID() (Identity, bool) {
 	if err != nil {
 		return Identity{}, false
 	}
-	u, ok := normalizeHardwareUUID(string(out))
+	u, ok := stabilizeSMBIOSUUID(string(out))
 	if !ok {
 		return Identity{}, false
 	}

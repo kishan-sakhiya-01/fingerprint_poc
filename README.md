@@ -31,9 +31,9 @@ fp, hash, err := deviceid.Compute()
 ## Fingerprint and hash
 
 - **`Fingerprint`**: `v` (schema/version), `source` (how `id` was obtained), `id` (normalized identifier string), plus `os` and `arch` from the Go runtime.
-- **`hash`**: `SHA256( JSON({ "v", "source", "id" }) )` as lowercase hex. Field order follows JSON marshaling of that struct.
+- **`hash`**: `SHA256( JSON({ "v", "source", "id" }) )` as lowercase hex. Field order follows JSON marshaling of that struct. Schema `v` is currently **3** (includes SMBIOS endian canonicalization).
 
-Hardware UUIDs are normalized: trimmed, braces removed, lowercased, and the all-zero UUID is rejected.
+Hardware UUIDs are normalized: trimmed, braces removed, lowercased, and the all-zero UUID is rejected. For SMBIOS product/system UUIDs, the first three fields are also **endianness-canonicalized** (the same firmware UUID is often shown differently by Windows WMI vs Linux `/sys/class/dmi/id/product_uuid`); the code picks a single deterministic string so dual-boot pairs match.
 
 ## How the identifier is chosen
 
