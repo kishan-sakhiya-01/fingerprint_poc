@@ -12,18 +12,18 @@ func metaClient() *http.Client {
 	return &http.Client{Timeout: 800 * time.Millisecond}
 }
 
-func tryAWS() (Identity, bool) {
+func tryAWS() (identity, bool) {
 	c := metaClient()
 	token, err := awsIMDSv2Token(c)
 	if err == nil && token != "" {
 		if id, err := awsGet(c, "/latest/meta-data/instance-id", token); err == nil && id != "" {
-			return Identity{Source: SourceAWS, RawID: strings.TrimSpace(id)}, true
+			return identity{source: SourceAWS, rawID: strings.TrimSpace(id)}, true
 		}
 	}
 	if id, err := awsGet(c, "/latest/meta-data/instance-id", ""); err == nil && id != "" {
-		return Identity{Source: SourceAWS, RawID: strings.TrimSpace(id)}, true
+		return identity{source: SourceAWS, rawID: strings.TrimSpace(id)}, true
 	}
-	return Identity{}, false
+	return identity{}, false
 }
 
 func awsIMDSv2Token(c *http.Client) (string, error) {
@@ -70,47 +70,47 @@ func awsGet(c *http.Client, path, token string) (string, error) {
 	return string(b), nil
 }
 
-func tryGCP() (Identity, bool) {
+func tryGCP() (identity, bool) {
 	c := metaClient()
 	req, err := http.NewRequest(http.MethodGet, "http://metadata.google.internal/computeMetadata/v1/instance/id", nil)
 	if err != nil {
-		return Identity{}, false
+		return identity{}, false
 	}
 	req.Header.Set("Metadata-Flavor", "Google")
 	resp, err := c.Do(req)
 	if err != nil {
-		return Identity{}, false
+		return identity{}, false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return Identity{}, false
+		return identity{}, false
 	}
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 256))
 	if err != nil || len(b) == 0 {
-		return Identity{}, false
+		return identity{}, false
 	}
-	return Identity{Source: SourceGCP, RawID: strings.TrimSpace(string(b))}, true
+	return identity{source: SourceGCP, rawID: strings.TrimSpace(string(b))}, true
 }
 
-func tryAzure() (Identity, bool) {
+func tryAzure() (identity, bool) {
 	c := metaClient()
 	url := "http://169.254.169.254/metadata/instance/compute/vmId?api-version=2021-02-01&format=text"
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return Identity{}, false
+		return identity{}, false
 	}
 	req.Header.Set("Metadata", "true")
 	resp, err := c.Do(req)
 	if err != nil {
-		return Identity{}, false
+		return identity{}, false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return Identity{}, false
+		return identity{}, false
 	}
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 512))
 	if err != nil || len(b) == 0 {
-		return Identity{}, false
+		return identity{}, false
 	}
-	return Identity{Source: SourceAzure, RawID: strings.TrimSpace(string(b))}, true
+	return identity{source: SourceAzure, rawID: strings.TrimSpace(string(b))}, true
 }

@@ -16,7 +16,7 @@ var linuxProductUUIDPaths = []string{
 	"/sys/devices/virtual/dmi/id/product_uuid",
 }
 
-func tryLinuxSysfsProductUUID() (Identity, bool) {
+func tryLinuxSysfsProductUUID() (identity, bool) {
 	for _, p := range linuxProductUUIDPaths {
 		b, err := os.ReadFile(p)
 		if err != nil {
@@ -26,30 +26,30 @@ func tryLinuxSysfsProductUUID() (Identity, bool) {
 			return id, true
 		}
 	}
-	return Identity{}, false
+	return identity{}, false
 }
 
-func identityFromLinuxProductUUIDBytes(b []byte) (Identity, bool) {
+func identityFromLinuxProductUUIDBytes(b []byte) (identity, bool) {
 	s := strings.TrimSpace(string(b))
 	if s == "" {
-		return Identity{}, false
+		return identity{}, false
 	}
 	lo := strings.ToLower(s)
 	if strings.Contains(lo, "not specified") || strings.Contains(lo, "not settable") || strings.Contains(lo, "unknown") {
-		return Identity{}, false
+		return identity{}, false
 	}
 	u, ok := stabilizeSMBIOSUUID(s)
 	if !ok {
-		return Identity{}, false
+		return identity{}, false
 	}
-	return Identity{Source: SourceSMBIOS, RawID: u}, true
+	return identity{source: SourceSMBIOS, rawID: u}, true
 }
 
-func tryLinuxFirmwareDMIType1() (Identity, bool) {
+func tryLinuxFirmwareDMIType1() (identity, bool) {
 	const base = "/sys/firmware/dmi/entries"
 	ents, err := os.ReadDir(base)
 	if err != nil {
-		return Identity{}, false
+		return identity{}, false
 	}
 	for _, e := range ents {
 		if !e.IsDir() {
@@ -76,40 +76,40 @@ func tryLinuxFirmwareDMIType1() (Identity, bool) {
 		if !ok {
 			continue
 		}
-		return Identity{Source: SourceSMBIOS, RawID: u}, true
+		return identity{source: SourceSMBIOS, rawID: u}, true
 	}
-	return Identity{}, false
+	return identity{}, false
 }
 
-func tryLinuxDmidecodeSystemUUID() (Identity, bool) {
+func tryLinuxDmidecodeSystemUUID() (identity, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "dmidecode", "-s", "system-uuid")
 	out, err := cmd.Output()
 	if err != nil {
-		return Identity{}, false
+		return identity{}, false
 	}
 	return identityFromLinuxProductUUIDBytes(out)
 }
 
-func tryLinuxFirmwareDMITableBlob() (Identity, bool) {
+func tryLinuxFirmwareDMITableBlob() (identity, bool) {
 	b, err := os.ReadFile("/sys/firmware/dmi/tables/DMI")
 	if err != nil || len(b) < 32 {
-		return Identity{}, false
+		return identity{}, false
 	}
 	u16, ok := walkSMBIOSStructureTable(b)
 	if !ok {
-		return Identity{}, false
+		return identity{}, false
 	}
 	s := smbiosTableMemoryToUUIDString(u16)
 	u, ok := stabilizeSMBIOSUUID(s)
 	if !ok {
-		return Identity{}, false
+		return identity{}, false
 	}
-	return Identity{Source: SourceSMBIOS, RawID: u}, true
+	return identity{source: SourceSMBIOS, rawID: u}, true
 }
 
-func linuxSMBIOSIdentity() (Identity, bool) {
+func linuxSMBIOSIdentity() (identity, bool) {
 	if id, ok := tryLinuxSysfsProductUUID(); ok {
 		return id, true
 	}
@@ -123,5 +123,5 @@ func linuxSMBIOSIdentity() (Identity, bool) {
 	if id, ok := tryLinuxDmidecodeSystemUUID(); ok {
 		return id, true
 	}
-	return Identity{}, false
+	return identity{}, false
 }

@@ -7,8 +7,8 @@ import (
 	"runtime"
 )
 
-// fingerprintVersion 6: SMBIOS (DMI/CIM) preferred again; boot-disk serial is fallback when SMBIOS is unavailable—avoids changing the id whenever WMI disk serial and sysfs serial disagree.
-const fingerprintVersion = 6
+// fingerprintVersion 4: stable hash omits os/arch; SMBIOS UUID endianness canonicalized; Linux uses extra DMI sources (tables/DMI, Type-1 entries, dmidecode) when product_uuid sysfs is missing.
+const fingerprintVersion = 4
 
 type Source string
 
@@ -17,16 +17,15 @@ const (
 	SourceAzure         Source = "azure_vm"
 	SourceGCP           Source = "gcp_gce"
 	SourceSMBIOS        Source = "smbios_system_uuid"
-	SourceBootDisk      Source = "boot_disk_serial"
 	SourceLinux         Source = "linux_machine_id"
 	SourceWindows       Source = "windows_machine_guid"
 	SourceDarwin        Source = "darwin_platform_uuid"
 	SourceUnsupportedOS Source = "unsupported_os"
 )
 
-type Identity struct {
-	Source Source `json:"source"`
-	RawID  string `json:"raw_id"`
+type identity struct {
+	source Source
+	rawID  string
 }
 
 type Fingerprint struct {
@@ -45,8 +44,8 @@ func Compute() (Fingerprint, string, error) {
 	}
 	fp := Fingerprint{
 		Version: fingerprintVersion,
-		Source:  id.Source,
-		ID:      id.RawID,
+		Source:  id.source,
+		ID:      id.rawID,
 		OS:      runtime.GOOS,
 		Arch:    runtime.GOARCH,
 	}
@@ -57,7 +56,7 @@ func Compute() (Fingerprint, string, error) {
 	return fp, hash, nil
 }
 
-func resolveIdentity() (Identity, error) {
+func resolveIdentity() (identity, error) {
 	if id, ok := tryAWS(); ok {
 		return id, nil
 	}

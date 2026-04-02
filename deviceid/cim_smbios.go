@@ -10,21 +10,21 @@ import (
 
 // identityFromCIMProductUUID reads Win32_ComputerSystemProduct.UUID via Windows PowerShell.
 // Used on native Windows and on WSL (Linux) so the ID matches the Windows host.
-func identityFromCIMProductUUID() (Identity, bool) {
+func identityFromCIMProductUUID() (identity, bool) {
 	ps := resolvePowerShellForCIM()
 	if ps == "" {
-		return Identity{}, false
+		return identity{}, false
 	}
 	cmd := exec.Command(ps, "-NoProfile", "-Command", "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID")
 	out, err := cmd.Output()
 	if err != nil {
-		return Identity{}, false
+		return identity{}, false
 	}
 	u, ok := stabilizeSMBIOSUUID(string(out))
 	if !ok {
-		return Identity{}, false
+		return identity{}, false
 	}
-	return Identity{Source: SourceSMBIOS, RawID: u}, true
+	return identity{source: SourceSMBIOS, rawID: u}, true
 }
 
 func resolvePowerShellForCIM() string {

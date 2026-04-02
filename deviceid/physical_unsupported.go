@@ -7,6 +7,6 @@ import (
 	"runtime"
 )
 
-func physicalIdentity() (Identity, error) {
-	return Identity{}, fmt.Errorf("deviceid: unsupported GOOS %q for physical identity", runtime.GOOS)
+func physicalIdentity() (identity, error) {
+	return identity{}, fmt.Errorf("deviceid: unsupported GOOS %q for physical identity", runtime.GOOS)
 }

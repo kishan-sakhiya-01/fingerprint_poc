@@ -8,11 +8,11 @@ The hash is derived only from stable fields (`v`, `source`, `id`). The printed f
 
 - [Go](https://go.dev/dl/) (version compatible with `go.mod`, currently 1.25+)
 
-**Windows:** PowerShell **SMBIOS** (`Win32_ComputerSystemProduct`) first, then **boot disk serial** (CIM) if SMBIOS fails, then `MachineGuid`.
+**Windows:** PowerShell with `Get-CimInstance` for SMBIOS (typical on Windows 10/11 and Server).
 
-**WSL:** **`powershell.exe`** for host SMBIOS, then host boot-disk serial, then guest SMBIOS—[interop](https://learn.microsoft.com/en-us/windows/wsl/filesystems#run-windows-tools-from-wsl) required.
+**WSL:** [Windows interoperability](https://learn.microsoft.com/en-us/windows/wsl/filesystems#run-windows-tools-from-wsl) should be enabled so `powershell.exe` can run from the Linux side; otherwise resolution may fall back to the distro’s Linux identifiers and **not** match the Windows host.
 
-**Linux (native):** SMBIOS first (`product_uuid`, **`tables/DMI`**, `entries/*/raw`, `dmidecode`). If that whole chain fails, **boot disk serial** from **`/sys/block/...`** (no `sudo` when sysfs is readable), then `machine-id`.
+**Linux (native):** SMBIOS via `product_uuid`, **`/sys/firmware/dmi/tables/DMI`**, **`entries/*/raw`**, and optionally `dmidecode`. Many paths work without `sudo`; some systems lock down DMI (see below).
 
 ## Quick start
 
@@ -33,9 +33,9 @@ fp, hash, err := deviceid.Compute()
 ## Fingerprint and hash
 
 - **`Fingerprint`**: `v` (schema/version), `source` (how `id` was obtained), `id` (normalized identifier string), plus `os` and `arch` from the Go runtime.
-- **`hash`**: `SHA256( JSON({ "v", "source", "id" }) )` as lowercase hex. Field order follows JSON marshaling of that struct. Schema `v` is currently **6** (SMBIOS preferred; boot disk is fallback so sudo/readable DMI matches Windows again and avoids WMI-vs-sysfs disk serial skew).
+- **`hash`**: `SHA256( JSON({ "v", "source", "id" }) )` as lowercase hex. Field order follows JSON marshaling of that struct. Schema `v` is currently **4** (SMBIOS focus + Linux DMI fallbacks for parity with Windows when `sudo` / readable DMI works).
 
-Hardware UUIDs are normalized: trimmed, braces removed, lowercased, and the all-zero UUID is rejected. For SMBIOS product/system UUIDs, the first three fields are also **endianness-canonicalized** (the same firmware UUID is often shown differently by Windows WMI vs Linux `/sys/class/dmi/id/product_uuid`); the code picks a single deterministic string so dual-boot pairs match.
+Hardware UUIDs are normalized: trimmed, braces removed, lowercased, and the all-zero UUID is rejected. For SMBIOS product/system UUIDs, the first three fields are also **endianness-canonicalized** (the same firmware UUID is often shown differently by Windows WMI vs Linux sysfs); the code picks a single deterministic string so dual-boot pairs match.
 
 ## How the identifier is chosen
 
@@ -53,25 +53,21 @@ Cloud checks use short HTTP timeouts; if no cloud metadata responds, the physica
 | Environment | Primary identifier | `source` value |
 |-------------|-------------------|----------------|
 | **Windows** | SMBIOS UUID via PowerShell | `smbios_system_uuid` |
-| Windows (fallback) | Boot disk serial (CIM), normalized | `boot_disk_serial` |
-| Windows (last resort) | `MachineGuid` | `windows_machine_guid` |
-| **WSL** | Host SMBIOS CIM, then host boot-disk PS, then guest SMBIOS | `smbios_system_uuid` or `boot_disk_serial` |
-| **Linux (native)** | SMBIOS chain (see Requirements) | `smbios_system_uuid` |
-| Linux (fallback) | Boot disk sysfs serial | `boot_disk_serial` |
-| Linux (last resort) | `machine-id` | `linux_machine_id` |
+| Windows (fallback) | Registry `MachineGuid` | `windows_machine_guid` |
+| **WSL** | Host SMBIOS via `powershell.exe`, then guest SMBIOS chain | `smbios_system_uuid` |
+| **Linux (native)** | SMBIOS (`product_uuid`, **`tables/DMI`**, **`entries/*/raw`**, `dmidecode`) | `smbios_system_uuid` |
+| Linux (fallback) | `/etc/machine-id` or `/var/lib/dbus/machine-id` | `linux_machine_id` |
 | **macOS** | `ioreg` `IOPlatformUUID` | `darwin_platform_uuid` |
 | Other | — | `unsupported_os` (error) |
 
-WSL avoids using the **guest** virtual disk for `boot_disk_serial` until host PowerShell paths are exhausted.
-
-**No `sudo` and locked-down DMI:** Linux may only get `boot_disk_serial` while Windows still gets SMBIOS—they will **not** match until DMI is readable on Linux or you standardize on disk-only (not implemented as default).
+If DMI is not readable on Linux without elevated privileges, the app may fall back to **`linux_machine_id`**, which will **not** match Windows SMBIOS until SMBIOS data is available (e.g. readable sysfs, or `dmidecode` with appropriate permissions).
 
 ## Design goals and limits
 
 **Goals:**
 
-- **SMBIOS**-based `id` should match between **Windows** and **Ubuntu** when Linux can read DMI (often with `sudo` for `dmidecode`, or readable **`tables/DMI`** / `product_uuid`).
-- Switching OS or architecture should not change the hash if the underlying machine id and source are unchanged.
+- **SMBIOS**-based `id` should match between **Windows** and **Ubuntu** when Linux can read the same firmware UUID (WSL uses host PowerShell; native Linux uses DMI sysfs / table walk / `dmidecode`).
+- Switching OS or architecture should not change the hash if the underlying machine `id` and `source` are unchanged.
 
 **Not guaranteed:**
 
@@ -83,7 +79,7 @@ WSL avoids using the **guest** virtual disk for `boot_disk_serial` until host Po
 
 ## Project layout
 
-- `deviceid/` — `Compute`, cloud probes, per-OS physical resolution, SMBIOS/CIM helper, WSL detection, UUID normalization.
+- `deviceid/` — `Compute`, cloud probes, per-OS physical resolution, SMBIOS/CIM helper, WSL detection, DMI table walk, UUID normalization.
 - `main.go` — sample CLI.
 
 ## License
