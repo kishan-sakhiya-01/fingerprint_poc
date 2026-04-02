@@ -7,8 +7,8 @@ import (
 	"runtime"
 )
 
-// fingerprintVersion 5: physical id prefers boot-disk serial (no sudo on Linux sysfs; Windows/WSL via PowerShell) before SMBIOS so dual-boot matches when DMI is root-only.
-const fingerprintVersion = 5
+// fingerprintVersion 6: SMBIOS (DMI/CIM) preferred again; boot-disk serial is fallback when SMBIOS is unavailable—avoids changing the id whenever WMI disk serial and sysfs serial disagree.
+const fingerprintVersion = 6
 
 type Source string
 

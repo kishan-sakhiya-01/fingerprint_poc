@@ -9,22 +9,22 @@ import (
 )
 
 func physicalIdentity() (Identity, error) {
-	// WSL: host boot disk via PowerShell first (matches Windows); do not use Linux guest block serial.
+	// WSL: host SMBIOS first (same order as Windows), then host boot disk; avoid guest sysfs disk for host parity.
 	if isWSL() {
-		if id, ok := identityBootDiskFromPS(); ok {
+		if id, ok := identityFromCIMProductUUID(); ok {
 			return id, nil
 		}
-		if id, ok := identityFromCIMProductUUID(); ok {
+		if id, ok := identityBootDiskFromPS(); ok {
 			return id, nil
 		}
 		if id, ok := linuxSMBIOSIdentity(); ok {
 			return id, nil
 		}
 	} else {
-		if id, ok := tryLinuxBootDiskSerialSysfs(); ok {
+		if id, ok := linuxSMBIOSIdentity(); ok {
 			return id, nil
 		}
-		if id, ok := linuxSMBIOSIdentity(); ok {
+		if id, ok := tryLinuxBootDiskSerialSysfs(); ok {
 			return id, nil
 		}
 	}

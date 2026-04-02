@@ -8,11 +8,11 @@ The hash is derived only from stable fields (`v`, `source`, `id`). The printed f
 
 - [Go](https://go.dev/dl/) (version compatible with `go.mod`, currently 1.25+)
 
-**Windows:** PowerShell is used for the **boot disk serial** (CIM) first, then SMBIOS, then `MachineGuid`.
+**Windows:** PowerShell **SMBIOS** (`Win32_ComputerSystemProduct`) first, then **boot disk serial** (CIM) if SMBIOS fails, then `MachineGuid`.
 
-**WSL:** [interop](https://learn.microsoft.com/en-us/windows/wsl/filesystems#run-windows-tools-from-wsl) must allow **`powershell.exe`** so the **same** boot-disk script runs as on Windows; otherwise host parity breaks.
+**WSL:** **`powershell.exe`** for host SMBIOS, then host boot-disk serial, then guest SMBIOS—[interop](https://learn.microsoft.com/en-us/windows/wsl/filesystems#run-windows-tools-from-wsl) required.
 
-**Linux (native):** **`/sys/...` boot disk serial** for the root filesystem’s physical disk usually works **without sudo**, before any SMBIOS paths. Extra SMBIOS sources (`product_uuid`, **`/sys/firmware/dmi/tables/DMI`**, `entries/*/raw`, `dmidecode`) run when disk serial is unavailable.
+**Linux (native):** SMBIOS first (`product_uuid`, **`tables/DMI`**, `entries/*/raw`, `dmidecode`). If that whole chain fails, **boot disk serial** from **`/sys/block/...`** (no `sudo` when sysfs is readable), then `machine-id`.
 
 ## Quick start
 
@@ -33,7 +33,7 @@ fp, hash, err := deviceid.Compute()
 ## Fingerprint and hash
 
 - **`Fingerprint`**: `v` (schema/version), `source` (how `id` was obtained), `id` (normalized identifier string), plus `os` and `arch` from the Go runtime.
-- **`hash`**: `SHA256( JSON({ "v", "source", "id" }) )` as lowercase hex. Field order follows JSON marshaling of that struct. Schema `v` is currently **5** (boot-disk serial preferred for physical machines so Ubuntu without DMI/sudo can match Windows on the **same physical disk**).
+- **`hash`**: `SHA256( JSON({ "v", "source", "id" }) )` as lowercase hex. Field order follows JSON marshaling of that struct. Schema `v` is currently **6** (SMBIOS preferred; boot disk is fallback so sudo/readable DMI matches Windows again and avoids WMI-vs-sysfs disk serial skew).
 
 Hardware UUIDs are normalized: trimmed, braces removed, lowercased, and the all-zero UUID is rejected. For SMBIOS product/system UUIDs, the first three fields are also **endianness-canonicalized** (the same firmware UUID is often shown differently by Windows WMI vs Linux `/sys/class/dmi/id/product_uuid`); the code picks a single deterministic string so dual-boot pairs match.
 
@@ -52,25 +52,25 @@ Cloud checks use short HTTP timeouts; if no cloud metadata responds, the physica
 
 | Environment | Primary identifier | `source` value |
 |-------------|-------------------|----------------|
-| **Windows** | Serial of the disk that holds the **system volume** (CIM), normalized | `boot_disk_serial` |
-| Windows (fallback) | SMBIOS UUID via PowerShell | `smbios_system_uuid` |
+| **Windows** | SMBIOS UUID via PowerShell | `smbios_system_uuid` |
+| Windows (fallback) | Boot disk serial (CIM), normalized | `boot_disk_serial` |
 | Windows (last resort) | `MachineGuid` | `windows_machine_guid` |
-| **WSL** | PowerShell host boot-disk serial, then host SMBIOS CIM, then guest SMBIOS | `boot_disk_serial` or `smbios_system_uuid` |
-| **Linux (native)** | **`/sys/block/...`** serial for **root’s disk** (LVM → `dm-*` slaves), normalized | `boot_disk_serial` |
-| Linux | SMBIOS: `product_uuid`, **`tables/DMI`**, **`entries/*/raw`**, `dmidecode` | `smbios_system_uuid` |
-| Linux (fallback) | `machine-id` | `linux_machine_id` |
+| **WSL** | Host SMBIOS CIM, then host boot-disk PS, then guest SMBIOS | `smbios_system_uuid` or `boot_disk_serial` |
+| **Linux (native)** | SMBIOS chain (see Requirements) | `smbios_system_uuid` |
+| Linux (fallback) | Boot disk sysfs serial | `boot_disk_serial` |
+| Linux (last resort) | `machine-id` | `linux_machine_id` |
 | **macOS** | `ioreg` `IOPlatformUUID` | `darwin_platform_uuid` |
 | Other | — | `unsupported_os` (error) |
 
-WSL is detected the same way as before. **Native** Linux does **not** use a guest virtual disk for `boot_disk_serial`; WSL uses the host via PowerShell first.
+WSL avoids using the **guest** virtual disk for `boot_disk_serial` until host PowerShell paths are exhausted.
 
-Note: **Windows and Ubuntu must share the same physical boot disk** for `boot_disk_serial` to match. If each OS is on a different drive, ids will differ by design.
+**No `sudo` and locked-down DMI:** Linux may only get `boot_disk_serial` while Windows still gets SMBIOS—they will **not** match until DMI is readable on Linux or you standardize on disk-only (not implemented as default).
 
 ## Design goals and limits
 
 **Goals:**
 
-- Same **bare-metal** machine under **Windows**, **WSL**, and **dual-boot Linux** on the **same physical system disk** should share the same `id` and hash via **`boot_disk_serial`** first (no `sudo` on typical Ubuntu).
+- **SMBIOS**-based `id` should match between **Windows** and **Ubuntu** when Linux can read DMI (often with `sudo` for `dmidecode`, or readable **`tables/DMI`** / `product_uuid`).
 - Switching OS or architecture should not change the hash if the underlying machine id and source are unchanged.
 
 **Not guaranteed:**

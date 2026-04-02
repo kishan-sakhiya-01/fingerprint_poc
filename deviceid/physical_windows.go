@@ -10,10 +10,10 @@ import (
 )
 
 func physicalIdentity() (Identity, error) {
-	if id, ok := identityBootDiskFromPS(); ok {
+	if id, ok := identityFromCIMProductUUID(); ok {
 		return id, nil
 	}
-	if id, ok := identityFromCIMProductUUID(); ok {
+	if id, ok := identityBootDiskFromPS(); ok {
 		return id, nil
 	}
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Cryptography`, registry.QUERY_VALUE)
