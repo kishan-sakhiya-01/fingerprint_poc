@@ -1,6 +1,8 @@
 package deviceid
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // smbiosUUIDBytesUsable reports whether the 16-byte DMI UUID field is set (not all-zero / all-0xFF).
 func smbiosUUIDBytesUsable(b [16]byte) bool {
@@ -44,4 +46,42 @@ func smbiosTableMemoryToUUIDString(b [16]byte) string {
 		b[7], b[6],
 		b[8], b[9], b[10], b[11],
 		b[12], b[13], b[14], b[15])
+}
+
+// walkSMBIOSStructureTable scans an SMBIOS structure table blob (e.g. /sys/firmware/dmi/tables/DMI)
+// and returns the Type-1 system UUID when present. Does not require per-entry sysfs "raw" files.
+func walkSMBIOSStructureTable(table []byte) ([16]byte, bool) {
+	var z [16]byte
+	i := 0
+	for i+2 <= len(table) {
+		typ := int(table[i])
+		L := int(table[i+1])
+		if L < 4 {
+			return z, false
+		}
+		if i+L > len(table) {
+			return z, false
+		}
+		if typ == 1 {
+			if u, ok := parseSMBIOSType1UUID(table[i : i+L]); ok {
+				return u, true
+			}
+		}
+		if typ == 127 {
+			break
+		}
+		j := i + L
+		for j+1 < len(table) && (table[j] != 0 || table[j+1] != 0) {
+			j++
+			if j-i > 8192 {
+				return z, false
+			}
+		}
+		if j+1 >= len(table) {
+			break
+		}
+		j += 2
+		i = j
+	}
+	return z, false
 }

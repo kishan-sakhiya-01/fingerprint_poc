@@ -92,8 +92,29 @@ func tryLinuxDmidecodeSystemUUID() (Identity, bool) {
 	return identityFromLinuxProductUUIDBytes(out)
 }
 
+func tryLinuxFirmwareDMITableBlob() (Identity, bool) {
+	b, err := os.ReadFile("/sys/firmware/dmi/tables/DMI")
+	if err != nil || len(b) < 32 {
+		return Identity{}, false
+	}
+	u16, ok := walkSMBIOSStructureTable(b)
+	if !ok {
+		return Identity{}, false
+	}
+	s := smbiosTableMemoryToUUIDString(u16)
+	u, ok := stabilizeSMBIOSUUID(s)
+	if !ok {
+		return Identity{}, false
+	}
+	return Identity{Source: SourceSMBIOS, RawID: u}, true
+}
+
 func linuxSMBIOSIdentity() (Identity, bool) {
 	if id, ok := tryLinuxSysfsProductUUID(); ok {
+		return id, true
+	}
+	// Often world-readable even when entries/*/raw is root-only (so dmidecode/sudo was the only working path before).
+	if id, ok := tryLinuxFirmwareDMITableBlob(); ok {
 		return id, true
 	}
 	if id, ok := tryLinuxFirmwareDMIType1(); ok {

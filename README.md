@@ -12,6 +12,8 @@ The hash is derived only from stable fields (`v`, `source`, `id`). The printed f
 
 **WSL:** [Windows interoperability](https://learn.microsoft.com/en-us/windows/wsl/filesystems#run-windows-tools-from-wsl) should be enabled so `powershell.exe` can run from the Linux side; otherwise resolution may fall back to the distro’s Linux identifiers and **not** match the Windows host.
 
+**Linux (native, no sudo):** Prefer **`/sys/class/dmi/id/product_uuid`**, then the exported SMBIOS blob **`/sys/firmware/dmi/tables/DMI`** (often readable without root even when **`/sys/firmware/dmi/entries/*/raw`** is `0400`). Per-entry **`raw`** files and **`dmidecode`** may still require root on some kernels—those are tried after the table blob.
+
 ## Quick start
 
 ```bash
@@ -53,7 +55,7 @@ Cloud checks use short HTTP timeouts; if no cloud metadata responds, the physica
 | **Windows** | `Win32_ComputerSystemProduct.UUID` (SMBIOS) via PowerShell | `smbios_system_uuid` |
 | Windows (fallback) | Registry `HKLM\SOFTWARE\Microsoft\Cryptography` `MachineGuid` | `windows_machine_guid` |
 | **Linux** | Same SMBIOS as Windows when running under **WSL**: host query via `powershell.exe` | `smbios_system_uuid` |
-| Linux | `/sys/class/dmi/id/product_uuid` (and `/sys/devices/virtual/dmi/id/product_uuid`), else SMBIOS **Type 1** raw under `/sys/firmware/dmi/entries/*/raw`, else `dmidecode -s system-uuid` | `smbios_system_uuid` |
+| Linux | `product_uuid` sysfs, else SMBIOS table **`/sys/firmware/dmi/tables/DMI`**, else Type 1 **`entries/*/raw`**, else `dmidecode -s system-uuid` | `smbios_system_uuid` |
 | Linux (fallback) | `/etc/machine-id` or `/var/lib/dbus/machine-id` | `linux_machine_id` |
 | **macOS** | `ioreg` `IOPlatformUUID` | `darwin_platform_uuid` |
 | Other | — | `unsupported_os` (error) |
